@@ -1,5 +1,6 @@
 """銅箔製程品質分析 Streamlit 應用程式。"""
 
+import base64
 from pathlib import Path
 
 import joblib
@@ -10,6 +11,7 @@ import streamlit as st
 APP_DIR = Path(__file__).resolve().parent
 DATA_PATH = APP_DIR / "copper_foil_prepared.csv"
 MODEL_PATH = APP_DIR / "random_forest_anomaly.joblib"
+BACKGROUND_PATH = APP_DIR / "assets" / "copper_tubes_background.jpg"
 
 PROCESS_LABELS = {
     "Line_Speed_mpm": "線速 (m/min)",
@@ -42,6 +44,12 @@ def load_data(csv_path: str) -> pd.DataFrame:
 def load_model_bundle(model_path: str) -> dict:
     """載入已訓練模型及其輸入欄位、分類門檻。"""
     return joblib.load(model_path)
+
+
+@st.cache_data(ttl="1h", max_entries=1)
+def load_background_image(image_path: str) -> str:
+    """將背景圖片轉成 data URI 可用的 Base64 字串。"""
+    return base64.b64encode(Path(image_path).read_bytes()).decode("ascii")
 
 
 def get_data() -> pd.DataFrame:
@@ -232,10 +240,6 @@ def anomaly_prediction_page() -> None:
             st.dataframe(model_input, hide_index=True, alt="本次異常預測的模型輸入特徵")
 
 
-with st.sidebar:
-    st.markdown("### 銅箔製程品質分析")
-    st.caption("資料探索與 Random Forest 異常預測")
-
 current_page = st.navigation(
     [
         st.Page(data_overview_page, title="資料視覺化", icon=":material/analytics:", default=True),
@@ -243,4 +247,50 @@ current_page = st.navigation(
     ],
     position="sidebar",
 )
-current_page.run()
+
+with st.sidebar:
+    st.divider()
+    st.markdown("### 介面選項")
+    show_background = st.toggle(
+        "顯示銅管背景",
+        value=True,
+        help="切換主內容區的銅管背景圖片。",
+        key="show_copper_background",
+    )
+    background_fade = st.slider(
+        "內容底色不透明度",
+        min_value=0.50,
+        max_value=0.95,
+        value=0.85,
+        step=0.05,
+        help="數值越高，背景圖片越淡，文字和圖表越清楚。",
+        key="background_fade",
+    )
+
+if show_background:
+    if BACKGROUND_PATH.exists():
+        image_data = load_background_image(str(BACKGROUND_PATH))
+        st.html(
+            f"""<style>
+            .st-key-app-background {{
+                min-height: 100vh;
+                padding: 0 1rem 1.5rem;
+                border-radius: 0.75rem;
+                background-image:
+                    linear-gradient(
+                        rgba(255, 255, 255, {background_fade}),
+                        rgba(255, 255, 255, {background_fade})
+                    ),
+                    url("data:image/jpeg;base64,{image_data}");
+                background-size: cover;
+                background-position: center;
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+            }}
+            </style>"""
+        )
+    else:
+        st.sidebar.warning(f"找不到背景圖片：{BACKGROUND_PATH}")
+
+with st.container(key="app-background"):
+    current_page.run()
