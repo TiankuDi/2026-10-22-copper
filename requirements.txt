@@ -1,0 +1,6 @@
+# Python 3.12 runtime for 05_app.py and random_forest_anomaly.joblib
+streamlit==1.66.0
+pandas==3.0.6
+numpy==2.5.4
+scikit-learn==1.9.1
+joblib==1.6.0
